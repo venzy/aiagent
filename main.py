@@ -1,15 +1,26 @@
-import os, sys
+import os
+import sys
+import argparse
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 
 def main():
-    # Parse command line arguments
-    if len(sys.argv) != 2:
-        print("Usage: python main.py <prompt>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="AI Agent CLI: Process a user prompt with optional verbose output."
+    )
+    parser.add_argument(
+        '--verbose',
+        action='store_true',
+        help='Enable verbose output'
+    )
+    parser.add_argument(
+        'user_prompt',
+        type=str,
+        help='Prompt from the user'
+    )
 
-    user_prompt = sys.argv[1]
+    args = parser.parse_args()
 
     # Load environment variables from .env file
     load_dotenv()
@@ -21,13 +32,16 @@ def main():
 
     # Prepare to track the entire conversation
     messages = [
-        types.Content(role="user", parts=[types.Part(text=user_prompt)]),
+        types.Content(role="user", parts=[types.Part(text=args.user_prompt)]),
     ]
 
     # Generate content using the specified prompt
     response = client.models.generate_content(model=model, contents=messages)
     print(response.text)
-    print("Prompt tokens:", response.usage_metadata.prompt_token_count)
-    print("Response tokens:", response.usage_metadata.candidates_token_count)
+    if args.verbose:
+        print(f"User prompt: {args.user_prompt}")
+        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
+        print("Response tokens:", response.usage_metadata.candidates_token_count)
 
-main()
+if __name__ == "__main__":
+    main()
