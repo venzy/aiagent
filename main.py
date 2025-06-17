@@ -38,10 +38,15 @@ def main():
     # Generate content using the specified prompt
     response = client.models.generate_content(model=model, contents=messages)
     print(response.text)
+
+    # Metrics - may be used for more than verbose output
+    prompt_tokens = response.usage_metadata.prompt_token_count
+    response_tokens = response.usage_metadata.candidates_token_count
+
     if args.verbose:
         print(f"User prompt: {args.user_prompt}")
-        print("Prompt tokens:", response.usage_metadata.prompt_token_count)
-        print("Response tokens:", response.usage_metadata.candidates_token_count)
+        print(f"Prompt tokens: {prompt_tokens}")
+        print(f"Response tokens:{response_tokens}")
 
 if __name__ == "__main__":
     main()
