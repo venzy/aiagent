@@ -1,6 +1,7 @@
 import os, sys
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 def main():
     # Parse command line arguments
@@ -8,7 +9,7 @@ def main():
         print("Usage: python main.py <prompt>")
         sys.exit(1)
 
-    prompt = sys.argv[1]
+    user_prompt = sys.argv[1]
 
     # Load environment variables from .env file
     load_dotenv()
@@ -18,8 +19,13 @@ def main():
     client = genai.Client(api_key=api_key)
     model = "gemini-2.0-flash-001"
 
+    # Prepare to track the entire conversation
+    messages = [
+        types.Content(role="user", parts=[types.Part(text=user_prompt)]),
+    ]
+
     # Generate content using the specified prompt
-    response = client.models.generate_content(model=model, contents=prompt)
+    response = client.models.generate_content(model=model, contents=messages)
     print(response.text)
     print("Prompt tokens:", response.usage_metadata.prompt_token_count)
     print("Response tokens:", response.usage_metadata.candidates_token_count)
