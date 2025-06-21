@@ -4,6 +4,7 @@ import argparse
 from dotenv import load_dotenv
 from google import genai
 from google.genai import types
+from functions import get_files_info, get_file_content, run_python_file, write_file
 
 def main():
     parser = argparse.ArgumentParser(
@@ -128,7 +129,10 @@ The root directory is the working directory, and is represented by a dot (.) in 
         )
     
     for function_call_part in response.function_calls:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+        function_call_result = call_function(function_call_part, verbose=args.verbose)
+        function_response = function_call_result.parts[0].function_response.response
+        if args.verbose:
+            print(f"-> {function_response}")
 
     #print(response.text)
 
@@ -140,6 +144,48 @@ The root directory is the working directory, and is represented by a dot (.) in 
         print(f"User prompt: {args.user_prompt}")
         print(f"Prompt tokens: {prompt_tokens}")
         print(f"Response tokens:{response_tokens}")
+
+
+def call_function(function_call_part, verbose=False):
+    if verbose:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    else:
+        print(f"Calling function: {function_call_part.name}")
+    
+    # For now, hard-code working directory
+    working_directory = "./calculator"
+    args = dict(function_call_part.args)
+    args["working_directory"] = working_directory
+    
+    match function_call_part.name:
+        case "get_files_info":
+            function_result = get_files_info.get_files_info(**function_call_part.args)
+        case "get_file_content":
+            function_result = get_file_content.get_file_content(**function_call_part.args)
+        case "run_python_file":
+            function_result = run_python_file.run_python_file(**function_call_part.args)
+        case "write_file":
+            function_result = write_file.write_file(**function_call_part.args)
+        case _:
+            return types.Content(
+                role="tool",
+                parts=[
+                    types.Part.from_function_response(
+                        name=function_call_part.name,
+                        response={"error": f"Unknown function: {function_call_part.name}"},
+                    )
+                ],
+            )
+
+    return types.Content(
+        role="tool",
+        parts=[
+            types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"result": function_result},
+            )
+        ],
+    )
 
 if __name__ == "__main__":
     main()
