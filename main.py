@@ -49,6 +49,18 @@ When a user asks a question or makes a request, make a function call plan. You c
 
 All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
 The root directory is the working directory, and is represented by a dot (.) in your function calls.
+
+You will be able to make at most 20 function calls, in any mix of the available functions, to complete the task, and you can call functions multiple times if needed.
+
+Where presenting a list of steps or sequence of events/operations, use a numbered list format, e.g.:
+1. Step one
+2. Step two
+3. Step three
+
+When presenting a list of items, use a bulleted list format, e.g.:
+- Item one
+- Item two
+- Item three
 """
 
     # Declare our functions
@@ -121,20 +133,30 @@ The root directory is the working directory, and is represented by a dot (.) in 
         ]
     )
 
-    # Generate content using the specified prompt
-    response = client.models.generate_content(
-        model=model,
-        contents=messages,
-        config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt),
-        )
-    
-    for function_call_part in response.function_calls:
-        function_call_result = call_function(function_call_part, verbose=args.verbose)
-        function_response = function_call_result.parts[0].function_response.response
-        if args.verbose:
-            print(f"-> {function_response}")
+    for i in range(20):
+        # Generate content using the specified prompt
+        response = client.models.generate_content(
+            model=model,
+            contents=messages,
+            config=types.GenerateContentConfig(tools=[available_functions], system_instruction=system_prompt),
+            )
 
-    #print(response.text)
+        for candidate in response.candidates:
+            messages.append(candidate.content)
+        
+        if response.function_calls is None or len(response.function_calls) == 0:
+            if args.verbose:
+                print("No function calls made, ending conversation.")
+            print("Final response:")
+            print(response.text)
+            break
+
+        for function_call_part in response.function_calls:
+            function_call_result = call_function(function_call_part, verbose=args.verbose)
+            messages.append(function_call_result)
+            function_response = function_call_result.parts[0].function_response.response
+            if args.verbose:
+                print(f"-> {function_response}")
 
     # Metrics - may be used for more than verbose output
     prompt_tokens = response.usage_metadata.prompt_token_count
@@ -148,24 +170,24 @@ The root directory is the working directory, and is represented by a dot (.) in 
 
 def call_function(function_call_part, verbose=False):
     if verbose:
-        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+        print(f"- Calling function: {function_call_part.name}({function_call_part.args})")
     else:
-        print(f"Calling function: {function_call_part.name}")
+        print(f"- Calling function: {function_call_part.name}")
     
     # For now, hard-code working directory
-    working_directory = "./calculator"
+    working_directory = "calculator"
     args = dict(function_call_part.args)
     args["working_directory"] = working_directory
     
     match function_call_part.name:
         case "get_files_info":
-            function_result = get_files_info.get_files_info(**function_call_part.args)
+            function_result = get_files_info.get_files_info(**args)
         case "get_file_content":
-            function_result = get_file_content.get_file_content(**function_call_part.args)
+            function_result = get_file_content.get_file_content(**args)
         case "run_python_file":
-            function_result = run_python_file.run_python_file(**function_call_part.args)
+            function_result = run_python_file.run_python_file(**args)
         case "write_file":
-            function_result = write_file.write_file(**function_call_part.args)
+            function_result = write_file.write_file(**args)
         case _:
             return types.Content(
                 role="tool",
